@@ -61,30 +61,23 @@ How to Set Up
 Project Folder Structure
 
 mindflash/
-  firebase.json
-  firestore.rules
-  functions/
-    index.js
-    package.json
-  web/
-    firebase-config.js
-    index.html
-    register.html
-    home.html
-    saved.html
-  android/
-    app/
-      google-services.json
-      src/main/java/com/demo/mindflash/
-        SplashActivity.java
-        LoginActivity.java
-        RegisterActivity.java
-        HomeActivity.java
-        LikedActivity.java
-        SavedActivity.java
-        MyFirebaseMessagingService.java
-        ApiService.java
-        model/Fact.java
-        adapter/FactAdapter.java
+├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json
+├── .firebaserc
+│
+├── functions/
+│   ├── index.js
+│   └── package.json
+│
+├── web/
+│   ├── firebase-config.js
+│   ├── index.html
+│   ├── register.html
+│   ├── home.html
+│   └── saved.html
+│
+└── android/
+    └── app/src/main/
 
 ---
