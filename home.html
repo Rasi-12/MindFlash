@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mind Flash — Home</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background: #F5F5F5;
+            min-height: 100vh;
+        }
+        nav {
+            background: #1A1A2E;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo { color: white; font-size: 20px; font-weight: 700; }
+        .nav-links a {
+            color: #AAAAAA;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 14px;
+            transition: color 0.2s;
+        }
+        .nav-links a:hover { color: white; }
+        .container {
+            max-width: 600px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+        .greeting {
+            font-size: 20px;
+            color: #333;
+            margin-bottom: 24px;
+        }
+        .fact-card {
+            background: white;
+            border-radius: 20px;
+            padding: 40px 36px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            text-align: center;
+            margin-bottom: 24px;
+        }
+        .category-badge {
+            display: inline-block;
+            background: #E8F1FF;
+            color: #4A90E2;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 6px 14px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+        }
+        .fact-text {
+            font-size: 20px;
+            color: #1A1A2E;
+            line-height: 1.7;
+            font-style: italic;
+        }
+        .btn-row {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .btn {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s, transform 0.1s;
+        }
+        .btn:hover  { opacity: 0.9; }
+        .btn:active { transform: scale(0.97); }
+        .btn-like   { background: #FF4081; color: white; }
+        .btn-save   { background: #1A1A2E; color: white; }
+        .btn-saved  { background: white; color: #1A1A2E; border: 1.5px solid #DDD; display: block; width: 100%; padding: 13px; border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+        .loading { color: #888; font-style: italic; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <span class="nav-logo">⚡ Mind Flash</span>
+    <div class="nav-links">
+        <a href="liked.html">❤️ Liked</a>
+        <a href="saved.html">📌 Saved</a>
+        <a href="#" id="btnLogout">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <p class="greeting" id="greeting">Hi there 👋</p>
+
+    <div class="fact-card">
+        <div class="category-badge" id="factCategory">🔬 Loading...</div>
+        <p class="fact-text" id="factText">Fetching today's fact for you...</p>
+    </div>
+
+    <div class="btn-row">
+        <button class="btn btn-like" id="btnLike">❤️ Like</button>
+        <button class="btn btn-save" id="btnSave">📌 Save</button>
+    </div>
+    <a href="saved.html" class="btn-saved">📋 View My Saved Facts</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { auth, db } from './firebase-config.js';
+    import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import {
+        doc, setDoc, getDoc, serverTimestamp, collection
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // ⚠️ Replace with your actual deployed Cloud Function URL
+    const FUNCTION_URL = 'https://us-central1-mindflash-382b0.cloudfunctions.net/fetchDailyFact';
+    
+
+    let currentFact = null;
+    let currentUser = null;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2500);
+    }
+
+async function loadFact() {
+    try {
+        const res  = await fetch('https://uselessfacts.jsph.pl/random.json?language=en');
+        const data = await res.json();
+        const text = data.text;
+        let category = 'General';
+        if (/planet|star|DNA|cell|atom|species/i.test(text))        category = 'Science';
+        if (/war|king|queen|century|ancient|empire/i.test(text))    category = 'History';
+        if (/computer|internet|robot|AI|code|software/i.test(text)) category = 'Tech';
+        const uniqueId = Date.now().toString();
+        currentFact = { id: uniqueId, text, category };
+        document.getElementById('factText').textContent     = text;
+        document.getElementById('factCategory').textContent = '🔬 ' + category;
+    } catch (e) {
+        document.getElementById('factText').textContent = 'Could not load fact.';
+    }
+}
+
+    async function loadGreeting(user) {
+        try {
+            const snap = await getDoc(doc(db, 'users', user.uid));
+            const name = snap.exists() ? snap.data().name : user.displayName || 'there';
+            document.getElementById('greeting').textContent = 'Hi, ' + name + ' 👋';
+        } catch (_) {}
+    }
+
+    document.getElementById('btnLike').onclick = async () => {
+    if (!currentFact || !currentUser) return;
+    await setDoc(doc(db, 'users', currentUser.uid, 'liked', currentFact.id), {
+        text:     currentFact.text,
+        category: currentFact.category || 'General',
+        likedAt:  serverTimestamp()
+    });
+    showToast('Liked! ❤️');
+};
+
+    document.getElementById('btnSave').onclick = async () => {
+        if (!currentFact || !currentUser) return;
+        await setDoc(doc(db, 'users', currentUser.uid, 'saved', currentFact.id), {
+            text:     currentFact.text,
+            category: currentFact.category || 'General',
+            savedAt:  serverTimestamp()
+        });
+        showToast('Saved! 📌');
+    };
+
+    document.getElementById('btnLogout').onclick = async () => {
+        await signOut(auth);
+        location.href = 'index.html';
+    };
+
+    onAuthStateChanged(auth, user => {
+        if (!user) { location.href = 'index.html'; return; }
+        currentUser = user;
+        loadGreeting(user);
+        loadFact();
+    });
+</script>
+</body>
+</html>

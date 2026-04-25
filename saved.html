@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Mind Flash — Saved Facts</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', sans-serif; background: #F5F5F5; min-height: 100vh; }
+        nav {
+            background: #1A1A2E;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .nav-logo { color: white; font-size: 20px; font-weight: 700; }
+        .nav-links a {
+            color: #AAAAAA;
+            text-decoration: none;
+            margin-left: 20px;
+            font-size: 14px;
+        }
+        .nav-links a:hover { color: white; }
+        .container { max-width: 600px; margin: 40px auto; padding: 0 20px; }
+        h2 { font-size: 22px; color: #1A1A2E; margin-bottom: 24px; }
+        .fact-item {
+            background: white;
+            border-radius: 14px;
+            padding: 20px;
+            margin-bottom: 14px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        .fact-content { flex: 1; }
+        .category-badge {
+            display: inline-block;
+            background: #E8F1FF;
+            color: #4A90E2;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            margin-bottom: 8px;
+        }
+        .fact-text { font-size: 15px; color: #333; line-height: 1.6; }
+        .btn-delete {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            color: #CCC;
+            padding: 4px;
+            transition: color 0.2s;
+            flex-shrink: 0;
+        }
+        .btn-delete:hover { color: #e53935; }
+        .empty {
+            text-align: center;
+            color: #AAA;
+            font-size: 16px;
+            margin-top: 60px;
+        }
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <span class="nav-logo">⚡ Mind Flash</span>
+    <div class="nav-links">
+        <a href="home.html">🏠 Home</a>
+        <a href="index.html" id="btnLogout">Logout</a>
+    </div>
+</nav>
+
+<div class="container">
+    <h2>📌 Saved Facts</h2>
+    <div id="factList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+    import { auth, db } from './firebase-config.js';
+    import { onAuthStateChanged, signOut } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import {
+        collection, getDocs, deleteDoc, doc, orderBy, query
+    } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    let currentUser = null;
+
+    function showToast(msg) {
+        const t = document.getElementById('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        setTimeout(() => t.classList.remove('show'), 2000);
+    }
+
+    async function loadSaved(user) {
+        const listEl = document.getElementById('factList');
+        listEl.innerHTML = '';
+
+        const q    = query(collection(db, 'users', user.uid, 'saved'), orderBy('savedAt', 'desc'));
+        const snap = await getDocs(q);
+
+        if (snap.empty) {
+            listEl.innerHTML = '<div class="empty">No saved facts yet.<br>Go to Home and save some! 📌</div>';
+            return;
+        }
+
+        snap.forEach(docSnap => {
+            const data = docSnap.data();
+            const div  = document.createElement('div');
+            div.className = 'fact-item';
+            div.innerHTML = `
+                <div class="fact-content">
+                    <span class="category-badge">${data.category || 'General'}</span>
+                    <p class="fact-text">${data.text}</p>
+                </div>
+                <button class="btn-delete" data-id="${docSnap.id}" title="Remove">🗑️</button>
+            `;
+            listEl.appendChild(div);
+        });
+
+        // Delete handlers
+        listEl.querySelectorAll('.btn-delete').forEach(btn => {
+            btn.onclick = async () => {
+                const factId = btn.getAttribute('data-id');
+                await deleteDoc(doc(db, 'users', currentUser.uid, 'saved', factId));
+                btn.closest('.fact-item').remove();
+                showToast('Removed from saved');
+                if (listEl.querySelectorAll('.fact-item').length === 0) {
+                    listEl.innerHTML = '<div class="empty">No saved facts yet.<br>Go to Home and save some! 📌</div>';
+                }
+            };
+        });
+    }
+
+    document.getElementById('btnLogout').onclick = async (e) => {
+        e.preventDefault();
+        await signOut(auth);
+        location.href = 'index.html';
+    };
+
+    onAuthStateChanged(auth, user => {
+        if (!user) { location.href = 'index.html'; return; }
+        currentUser = user;
+        loadSaved(user);
+    });
+</script>
+</body>
+</html>
