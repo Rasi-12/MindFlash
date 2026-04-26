@@ -1,0 +1,15 @@
+# Android build files
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# Node modules
+functions/node_modules/
+
+# Firebase
+.firebase/
+
+# Secrets
+android/app/google-services.json
+Web/firebase-config.js 

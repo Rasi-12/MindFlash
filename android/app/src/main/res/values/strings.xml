@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Mind Flash</string>
+    <!-- This is the OAuth client_id from google-services.json (client_type 3) -->
+    <string name="default_web_client_id">493869490355-ljnna5ildb7utcpg54vpt9jijvgv1o4j.apps.googleusercontent.com</string>
+</resources>
